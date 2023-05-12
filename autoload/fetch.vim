@@ -58,6 +58,12 @@ function! s:specs.pytest.parse(file) abort
   return [l:file, ['search', [l:method, 'cw']]]
 endfunction " }}}
 
+" catch-all for monorepo stuff
+let s:specs.upapi = {'pattern': '\m[^:]*'}
+function! s:specs.upapi.parse(file) abort
+  return [a:file, ['cursor', [1,1]]]
+endfunction " }}}
+
 " Detection heuristics for buffers that should not be resolved: {{{
 let s:bufignore = {'freaks': []}
 function! s:bufignore.detect(bufnr) abort
@@ -118,6 +124,7 @@ function! fetch#buffer(bufname) abort " ({{{
     endif
     unlet! l:spec
   endfor
+  echom l:spec
   " @vimlint(EVL104, 1, l:spec)
   if exists('l:spec') isnot 1 | return 0 | endif
 
@@ -125,7 +132,16 @@ function! fetch#buffer(bufname) abort " ({{{
   " and a bona fide spurious unresolved buffer both
   let [l:file, l:jump] = l:spec.parse(a:bufname)
   if !filereadable(l:file) || s:bufignore.detect(bufnr(a:bufname)) is 1
-    return 0
+    " monorepo auto path resolution
+    if filereadable("../" . l:file)
+      if l:file =~ '^api/' || l:file =~ '^native/'
+        let l:file = "../" . l:file
+      else
+        return 0
+      endif
+    else
+      return 0
+    endif
   endif
 
   " activate the correct window (if needed)
